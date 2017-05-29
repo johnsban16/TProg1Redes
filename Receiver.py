@@ -18,7 +18,7 @@ class Server(object):
         self.file = 0
         print("listening on", my_dir)
 
-    def receive ():
+    def receive (self):
         "asdfasdfasdf"
         # while True:
         return 0
@@ -35,7 +35,7 @@ class Server(object):
         print("waiting for connection")
         data, addr = self.sock.recvfrom(100) # buffer size in bytes
 
-        unpacked = struct.unpack("ii11s", data) # https://docs.python.org/3/library/struct.html
+        unpacked = struct.unpack("!ii11s", data) # https://docs.python.org/3/library/struct.html
         window_size_rcv, port, ip = unpacked
         ipcdd = ip.decode("utf-8")
         print("A connection from :", ipcdd,"port", port, "has been requested. It declares a windows size of:", window_size_rcv, "bytes")
@@ -49,12 +49,12 @@ class Server(object):
         TARGET_IP =  str.encode(ipcdd.translate( dict.fromkeys(range(32)) )) # removing garbage from Sender ip and casting to bytes
         TARGET_PORT = port
         my_ip = str.encode(UDP_IP)
-        data = struct.pack("ii11s", self.my_window_size, UDP_PORT, my_ip)
+        data = struct.pack("!ii11s", self.my_window_size, UDP_PORT, my_ip)
         self.sock.sendto(data, (TARGET_IP, TARGET_PORT))
 
         # wait ack
         data, addr = self.sock.recvfrom(100) # buffer size in bytes
-        unpacked = struct.unpack("ii", data) # https://docs.python.org/3/library/struct.html
+        unpacked = struct.unpack("!ii", data) # https://docs.python.org/3/library/struct.html
         ack, seq_num = unpacked
         print(ack, seq_num)
         return True
@@ -67,12 +67,13 @@ class Server(object):
         print( "windows size of ",  self.my_window_size, "bytes" )
         while True:
             data  = self.sock.recv(    self.my_window_size ) # buffer size in bytes
-            headersize = 73
+            headersize = 33+16
             bodysize = self.my_window_size - headersize
-            unpacked = struct.unpack("11si11siii%ds"%bodysize, data) # https://docs.python.org/3/library/struct.html
+            # print("size of data", sys.getsizeof(data))
+            unpacked = struct.unpack("!iiii%ds"%bodysize, data) # https://docs.python.org/3/library/struct.html
 
-            source_ip,     source_port,     destination_ip,      destination_port,    seq_num,     ack, data = unpacked
-            # print (unpacked)
+            source_port, destination_port, seq_num, ack, data = unpacked
+            print ("received segment %d"%seq_num)
             self.file.write(    data.decode("utf-8")    )
         # print ( sys.getsizeof( header ) )
         return
