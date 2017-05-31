@@ -25,11 +25,15 @@ class Sender(object):
     "sadfdafsfasdfasdadf"
 
     def ackupdater(self):
-        print("hilo ack")
+        "sdfghj TODO"
+        print("*** hilo ack ***")
         while True:
-            data  = self.sock.recv( 500 )
-            unpacked = struct.unpack("!i", data)
-            print(unpacked)
+            rcvack, addr = self.sock.recvfrom( 500 )
+            unpacked = struct.unpack("!ii", rcvack)
+            seq, rcvack = unpacked
+            if self.ack < rcvack:
+                self.ack = rcvack
+                print("ack %d"%self.ack)
 
     def __init__(self):
         self.data = ""  # we will store here the data to be sent
@@ -44,7 +48,7 @@ class Sender(object):
         print("listening on", my_dir)
         self.ackr = threading.Thread(target=self.ackupdater)
         self.start()
-        #self.ackr.start()
+        self.ackr.start()
         self.sendSeg()
         sys.exit(0)
 
@@ -78,20 +82,23 @@ class Sender(object):
 
     def start(self):
         "start negotiting the window size"
-        # send syn
 
+        # send syn
         self.read_input_file()
         ipcdd = str.encode(UDP_IP)
-        data, addr = struct.pack("!ii11s", self.window_size, UDP_PORT, ipcdd) # "https://docs.python.org/3/library/struct.html"
+        # "https://docs.python.org/3/library/struct.html"
+        data = struct.pack("!ii11s", self.window_size, UDP_PORT, ipcdd)
         self.sock.sendto(data, (TARGET_IP, TARGET_PORT))
 
         # wait for syn-ack
         data, addr = self.sock.recvfrom(100) # buffer size in bytes
 
-        unpacked = struct.unpack("!ii11s", data) # https://docs.python.org/3/library/struct.html
+        # https://docs.python.org/3/library/struct.html
+        unpacked = struct.unpack("!ii11s", data)
         window_size_svr, port, ip = unpacked
         ipcdd = ip.decode("utf-8")
-        print("A connection from :", ipcdd,"port", port, "has been requested. It requests a windows size of:", window_size_svr, "bytes")
+        print("A connection from :", ipcdd,"port", port,
+              "has been requested. It requests a windows size of:", window_size_svr, "bytes")
         self.window_size = window_size_svr
 
         # send ack
@@ -124,7 +131,7 @@ class Sender(object):
             # source_port     destination_port    seq_num     ack
             header = struct.pack ("!iiii",UDP_PORT, TARGET_PORT, seq_num, ack)
             headersize = sys.getsizeof( header )
-            if ( headersize != 33+16 ):
+            if headersize != 33+16:
                 print("header size mismatch")
                 exit(23)
             sgdata = struct.pack ( segment_format, sgmts[seq_num]  ) # pack the segment data
