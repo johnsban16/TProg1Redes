@@ -73,7 +73,9 @@ class Server(object):
             unpacked = struct.unpack("!iiii%ds"%bodysize, data) # https://docs.python.org/3/library/struct.html
 
             source_port, destination_port, seq_num, ack, data = unpacked
-            print ("received segment %d"%seq_num)
+            print ("received segment %d"%seq_num, "ACK", ack)
+            ack = struct.pack ("!i", ack)
+            self.sock.sendto(data, (TARGET_IP, TARGET_PORT))
             self.file.write(    data.decode("utf-8")    )
         # print ( sys.getsizeof( header ) )
         return

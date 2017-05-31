@@ -9,7 +9,7 @@ import socket
 import sys  # used to read the file to send
 import struct
 import math
-
+import threading
 # Variables --------------------------------------------------------------
 
 TARGET_IP = "127.0.0.1"
@@ -24,16 +24,30 @@ UDP_PORT = 5006
 class Sender(object):
     "sadfdafsfasdfasdadf"
 
+    def ackupdater(self):
+        print("hilo ack")
+        while True:
+            data  = self.sock.recv( 500 )
+            unpacked = struct.unpack("!i", data)
+            print(unpacked)
+
     def __init__(self):
         self.data = ""  # we will store here the data to be sent
         # Crea la conexion
         self.sock = socket.socket(socket.AF_INET,    # Internet
                                   socket.SOCK_DGRAM)  # UDP
-                                  
+
         my_dir = (UDP_IP, UDP_PORT)
         self.sock.bind(my_dir)
         self.window_size = 4096
+        self.ack = 0
         print("listening on", my_dir)
+        self.ackr = threading.Thread(target=self.ackupdater)
+        self.start()
+        #self.ackr.start()
+        self.sendSeg()
+        sys.exit(0)
+
 
     header_size = 20
     mss = 1480 - header_size  # > https://en.wikipedia.org/wiki/Maximum_segment_size
@@ -68,7 +82,7 @@ class Sender(object):
 
         self.read_input_file()
         ipcdd = str.encode(UDP_IP)
-        data = struct.pack("!ii11s", self.window_size, UDP_PORT, ipcdd) # "https://docs.python.org/3/library/struct.html"
+        data, addr = struct.pack("!ii11s", self.window_size, UDP_PORT, ipcdd) # "https://docs.python.org/3/library/struct.html"
         self.sock.sendto(data, (TARGET_IP, TARGET_PORT))
 
         # wait for syn-ack
@@ -99,10 +113,11 @@ class Sender(object):
 
         # source_ip = str.encode(UDP_IP)
         # destination_ip = str.encode(TARGET_IP)
-        ack = math.ceil(sys.getsizeof(self.data)/self.window_size)
+
 
         segment_format = "%ds"%len(sgmts[0])
-
+		# ack = math.ceil(sys.getsizeof(self.data)/self.window_size)
+        ack = 0
         for seq_num in range( numbsegments ): # python 3 range is the same as python2 xrange
             print("sending segment %d"%seq_num)
             # Header:
@@ -117,14 +132,12 @@ class Sender(object):
             # print ( segmnt )
             # print ( sys.getsizeof( segmnt ) )
             self.sock.sendto(segmnt, (TARGET_IP, TARGET_PORT))
+            ack += 1
 
     # EO Methods -------------------------------------------------------------
 
 
 SNDR = Sender()
-SNDR.start()
-SNDR.sendSeg()
-sys.exit(0)
 
 
 # sock.sendto(MESSAGE_as_bytes, (UDP_IP, UDP_PORT))
