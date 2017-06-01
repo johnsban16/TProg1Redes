@@ -39,12 +39,13 @@ class Server(object):
         print("waiting for connection")
         data, addr = self.sock.recvfrom(100) # buffer size in bytes
 
+        print('***************************************************************')
         unpacked = struct.unpack("!ii11s", data) # https://docs.python.org/3/library/struct.html
         window_size_rcv, port, ip = unpacked
         ipcdd = ip.decode("utf-8")
         print("A connection from :", ipcdd,"port", port,
-              "has been requested. It declares a windows size of:", window_size_rcv, "bytes")
-        print("informing client that our max windows size is", self.my_window_size)
+              "has been received.\n It declares a windows size of:", window_size_rcv, "bytes")
+        print("informing client that our initial max window size is", self.my_window_size)
         if window_size_rcv < self.my_window_size:
             print( "received window size is smaller than our window size" )
             self.my_window_size = window_size_rcv
@@ -63,6 +64,7 @@ class Server(object):
         unpacked = struct.unpack("!ii", data) # https://docs.python.org/3/library/struct.html
         ack, seq_num = unpacked
         print(ack, seq_num)
+        print('***************************************************************')
         return True
 
         # self.sock.sendto(str.encode('4096'), (UDP_IP, UDP_PORT))
@@ -73,28 +75,33 @@ class Server(object):
         "sddfsad TODO"
         print( "windows size of ",  self.my_window_size, "bytes" )
 
-        headersize = 33+16
+        headersize = 33+(3*4) # 2 ints * 4 bytes
         bodysize = self.my_window_size - headersize
-        seq_num = 0
+        print('bodysize is %d'%bodysize)
+        expected_seq_num = 0
 
         while True:
             data  = self.sock.recv(    self.my_window_size ) # buffer size in bytes
             # print("size of data", sys.getsizeof(data))
 
             # https://docs.python.org/3/library/struct.html
-            unpacked = struct.unpack("!iiii%ds"%bodysize, data)
+            unpacked = struct.unpack("!iii%ds"%bodysize, data)
 
-            source_port, destination_port, rcv_seq_num, ack, data = unpacked
+            # source_port, destination_port, , , ,
+            rcv_seq_num, ack, length, data = unpacked
+            print(data.decode("utf-8") )
 
-            if seq_num == rcv_seq_num:
-                print ("received segment %d"%seq_num, "ACK", ack)
+            if expected_seq_num == rcv_seq_num:
+                print ("\tseq={} ack={} len={} ".format(1, rcv_seq_num, length))
+
+                # self.my_window_size = 500 + asfdf
 
                 # send ack
-                sndack = struct.pack ("!ii", 1, ack)
+                sndack = struct.pack ("!ii", 1, rcv_seq_num)
                 self.sock.sendto(sndack, (self.target_ip, self.target_port))
                 # write segment to disk
                 self.file.write(    data.decode("utf-8")    )
-                seq_num += 1
+                expected_seq_num += 1
 
         # print ( sys.getsizeof( header ) )
         return
