@@ -25,51 +25,58 @@ class Sender(object):
     "sadfdafsfasdfasdadf"
 
     def ackupdater(self):
-        "sdfghj TODO"
-        self.ack = 0
+        "Updates the value of sequence as new acks arrive**********************"
         self.fin = False
         print("*** hilo ack ***")
         while True:
             if self.fin:
                 print('fin ---------')
                 sys.exit(0)
-            rcvack, addr = self.sock.recvfrom( 500 )
+            try:
+                rcvack, addr = self.sock.recvfrom( 500 )
+            except socket.timeout:
+                print("ack timed out")
+                return
+
             unpacked = struct.unpack("!ii", rcvack)
-            seq, rcvack = unpacked
-            if self.ack <= rcvack:
-                self.ack = rcvack+1
-                print("received ack %d"%self.ack)
+            ack, win = unpacked
+            if self.ack < ack:
+                self.ack = ack
+                self.window_size = win
+                print("received [ACK] Seq=_  Ack={} Win={} Len=_".format(self.ack, win))
 
     def __init__(self):
+        "**********************************************************************"
         self.data = ""  # we will store here the data to be sent
         # Crea la conexion
         self.sock = socket.socket(socket.AF_INET,    # Internet
                                   socket.SOCK_DGRAM)  # UDP
-
         my_dir = (UDP_IP, UDP_PORT)
-        self.sock.bind(my_dir)
-        self.window_size = 4096
-        self.ack = 0
         print("listening on", my_dir)
+        self.sock.bind(my_dir)
+        self.sock.settimeout(1) # timeout in seconds
+        self.window_size = 16000
+        self.mss = 1460 # max segment size
+        self.ack = 0
         self.ackr = threading.Thread(target=self.ackupdater)
         self.start()
         self.ackr.start()
         self.sendSeg()
         self.fin = False
         sys.exit(0)
-    # EO Variables -----------------------------------------------------------
+        # EO Variables ---------------------------------------------------------
 
 
     # Methods ----------------------------------------------------------------
 
     def read_input_file(self):
-        "asfsdafasadf"
+        "Reads the input file specified as the argument 1**********************"
         if len(sys.argv) != 2:
             print('[Error]:\n\tNo file or more than 1 file specified\n')
             exit(1)
-        with open(sys.argv[1], 'r') as my_file:
-            file = my_file.read()
-            self.data = str.encode(file)
+        with open(sys.argv[1], 'rb') as my_file: # b: binary mode
+            self.data = my_file.read() # it is read as bytes
+            # self.data = str.encode(file)
 
             # print( sys.getsizeof(  file ) )
             size_in_bytes = sys.getsizeof(self.data)
@@ -80,13 +87,13 @@ class Sender(object):
         # send()
 
     def start(self):
-        "start negotiting the window size"
+        "starts the negotiation of the window size*****************************"
 
-        # send syn
+        # send SYN
         self.read_input_file()
         ipcdd = str.encode(UDP_IP)
         # "https://docs.python.org/3/library/struct.html"
-        data = struct.pack("!ii11s", self.window_size, UDP_PORT, ipcdd)
+        data = struct.pack("!iii11s", self.mss, self.window_size, UDP_PORT, ipcdd)
         self.sock.sendto(data, (TARGET_IP, TARGET_PORT))
 
         # wait for syn-ack
@@ -94,40 +101,37 @@ class Sender(object):
 
         # https://docs.python.org/3/library/struct.html
         unpacked = struct.unpack("!ii11s", data)
-        window_size_svr, port, ip = unpacked
+        window_size_rcv, port, ip = unpacked
         ipcdd = ip.decode("utf-8")
-        print("A connection from :", ipcdd,"port", port,
-              "has been requested. It requests a windows size of:", window_size_svr, "bytes")
-        self.window_size = window_size_svr
+        print(
+              "Machine {}:{} has accepted the synchronization request.".format(ipcdd, port),
+              "Its windows size is {} bytes".format(window_size_rcv)
+             )
+        if window_size_rcv < self.window_size:
+            self.window_size = window_size_rcv
 
         # send ack
         data = struct.pack("!ii", 0, 0)
         self.sock.sendto(data, (TARGET_IP, TARGET_PORT))
 
     def sendSeg(self):
-        "send segments of the message to the receiver"
+        "send segments of the message to the receiver**************************"
 
-        # window_size - headersize
-        n = self.window_size - (33+(3*4)+1)
+        n = self.mss # divide the file in segments
         sgmts = [self.data[i:i+n] for i in range(0, len(self.data), n )]
 
         numbsegments = len(sgmts)
         print( "Prepairing to send", numbsegments, "segments" )
         print( "size (in bytes) of each segment is ", sys.getsizeof( sgmts[0] ) )
 
-        # print(sgmts[0])
-
-        # source_ip = str.encode(UDP_IP)
-        # destination_ip = str.encode(TARGET_IP)
-
-
-        segment_format = "%ds"%len(sgmts[0])
-		# ack = math.ceil(sys.getsizeof(self.data)/self.window_size)
+        segment_format = "%ds"%len(sgmts[0]) # format example: '11s'
+        print ("--------------------------------", len(sgmts[0]))
         ack = 0
         seq_num = 0
-        while seq_num < numbsegments:
-            if seq_num <= self.ack:
-                length = sys.getsizeof( sgmts[seq_num] )
+        idx = 0
+        while idx < numbsegments:
+            if seq_num <= self.window_size:
+                length = len( sgmts[idx] )
                 print ("\tseq={} ack={} len={} ".format(seq_num, 1, length))
                 # Header:
                 header = struct.pack ("!?iii", False, seq_num, ack, length)
@@ -137,12 +141,13 @@ class Sender(object):
                     print("header size mismatch")
                     exit(23)
                 # pack the segment data
-                sgdata = struct.pack ( segment_format, sgmts[seq_num]  )
+                sgdata = struct.pack ( segment_format, sgmts[idx]  )
                 segmnt = header + sgdata
                 # print ( segmnt )
                 # print ( sys.getsizeof( segmnt ) )
                 self.sock.sendto(segmnt, (TARGET_IP, TARGET_PORT))
-                seq_num += 1
+                seq_num += length
+                idx += 1
         print('File sent')
 
         # send FIN flag ********************************************************
@@ -152,6 +157,8 @@ class Sender(object):
         fin = header + sgdata
         self.fin = True
         self.sock.sendto(fin, (TARGET_IP, TARGET_PORT))
+        # self.sock.shutdown(socket.SHUT_RDWR)
+        # self.sock.close()
         # **********************************************************************
         return
 
