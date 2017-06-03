@@ -1,5 +1,6 @@
 import socket
 import struct, sys
+import time
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
@@ -20,11 +21,6 @@ class Server(object):
         self.target_port = 0
         print("listening on", my_dir)
         self.start()
-
-    def receive (self):
-        "asdfasdfasdf"
-        # while True:
-        return 0
 
     def start(self):
         "asadfs TODO"
@@ -73,23 +69,28 @@ class Server(object):
     # sock.close()
     def receive_segments(self):
         "sddfsad TODO"
+
+        start = time.time()
         print( "windows size of ",  self.my_window_size, "bytes" )
 
-        headersize = 33+(3*4) # 2 ints * 4 bytes
+        headersize = 33+(3*4) +1# 2 ints * 4 bytes
         bodysize = self.my_window_size - headersize
         print('bodysize is %d'%bodysize)
         expected_seq_num = 0
 
         while True:
-            data  = self.sock.recv(    self.my_window_size ) # buffer size in bytes
-            # print("size of data", sys.getsizeof(data))
+            # Wait for data. my_window_size = buffer size in bytes
+            data  = self.sock.recv(    self.my_window_size )
 
             # https://docs.python.org/3/library/struct.html
-            unpacked = struct.unpack("!iii%ds"%bodysize, data)
+            unpacked = struct.unpack("!?iii%ds"%bodysize, data)
 
-            # source_port, destination_port, , , ,
-            rcv_seq_num, ack, length, data = unpacked
-            print(data.decode("utf-8") )
+            fin, rcv_seq_num, ack, length, data = unpacked
+            # print(data.decode("utf-8") )
+
+            if fin:
+                print('fin received')
+                break
 
             if expected_seq_num == rcv_seq_num:
                 print ("\tseq={} ack={} len={} ".format(1, rcv_seq_num, length))
@@ -102,8 +103,10 @@ class Server(object):
                 # write segment to disk
                 self.file.write(    data.decode("utf-8")    )
                 expected_seq_num += 1
-
+        end = time.time()
         # print ( sys.getsizeof( header ) )
+        self.file.close()
+        print("recibidos {} bytes en {} segundos".format(0, str(round(end - start, 2))))
         return
 
 

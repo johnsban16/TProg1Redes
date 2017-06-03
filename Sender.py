@@ -27,8 +27,12 @@ class Sender(object):
     def ackupdater(self):
         "sdfghj TODO"
         self.ack = 0
+        self.fin = False
         print("*** hilo ack ***")
         while True:
+            if self.fin:
+                print('fin ---------')
+                sys.exit(0)
             rcvack, addr = self.sock.recvfrom( 500 )
             unpacked = struct.unpack("!ii", rcvack)
             seq, rcvack = unpacked
@@ -51,14 +55,8 @@ class Sender(object):
         self.start()
         self.ackr.start()
         self.sendSeg()
+        self.fin = False
         sys.exit(0)
-
-
-    header_size = 20
-    mss = 1480 - header_size  # > https://en.wikipedia.org/wiki/Maximum_segment_size
-    # MSS specifies the largest amount of data, specified in bytes, that a computer
-    # or communications device can receive in a single TCP segment"""
-
     # EO Variables -----------------------------------------------------------
 
 
@@ -110,7 +108,7 @@ class Sender(object):
         "send segments of the message to the receiver"
 
         # window_size - headersize
-        n = self.window_size - (33+(3*4))
+        n = self.window_size - (33+(3*4)+1)
         sgmts = [self.data[i:i+n] for i in range(0, len(self.data), n )]
 
         numbsegments = len(sgmts)
@@ -129,17 +127,17 @@ class Sender(object):
         seq_num = 0
         while seq_num < numbsegments:
             if seq_num <= self.ack:
-                print("sending segment %d"%seq_num)
+                length = sys.getsizeof( sgmts[seq_num] )
+                print ("\tseq={} ack={} len={} ".format(seq_num, 1, length))
                 # Header:
-                # source_port     destination_port    seq_num     ack
-                lenght = sys.getsizeof( sgmts[seq_num] )
-                header = struct.pack ("!iii", seq_num, ack, lenght)
+                header = struct.pack ("!?iii", False, seq_num, ack, length)
                 headersize = sys.getsizeof( header )
 
-                if headersize != 33+(3*4) : # 2 ints * 4 bytes
+                if headersize != 33+(3*4) + 1: # 2 ints * 4 bytes
                     print("header size mismatch")
                     exit(23)
-                sgdata = struct.pack ( segment_format, sgmts[seq_num]  ) # pack the segment data
+                # pack the segment data
+                sgdata = struct.pack ( segment_format, sgmts[seq_num]  )
                 segmnt = header + sgdata
                 # print ( segmnt )
                 # print ( sys.getsizeof( segmnt ) )
@@ -147,7 +145,17 @@ class Sender(object):
                 seq_num += 1
         print('File sent')
 
-    # EO Methods -------------------------------------------------------------
+        # send FIN flag ********************************************************
+        header = struct.pack ("!?iii", True, 0, 0, 0)
+        # pack the segment data
+        sgdata = struct.pack ( segment_format, str.encode('')  )
+        fin = header + sgdata
+        self.fin = True
+        self.sock.sendto(fin, (TARGET_IP, TARGET_PORT))
+        # **********************************************************************
+        return
+
+    # EO Methods ---------------------------------------------------------------
 
 
 SNDR = Sender()
