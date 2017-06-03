@@ -12,13 +12,13 @@ import math
 import threading
 # Variables --------------------------------------------------------------
 
-TARGET_IP = "127.0.0.1"
+TARGET_IP = "10.0.0.2"
 TARGET_PORT = 5005
 
 print("UDP target IP:", TARGET_IP)
 print("UDP target port:", TARGET_PORT)
 
-UDP_IP = "127.0.0.1"
+UDP_IP = "10.0.0.1"
 UDP_PORT = 5006
 
 class Sender(object):

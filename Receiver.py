@@ -2,7 +2,7 @@ import socket
 import struct, sys
 import time
 
-UDP_IP = "127.0.0.1"
+UDP_IP = "10.0.0.2"
 UDP_PORT = 5005
 
 "asdfasfsadfasdf"
