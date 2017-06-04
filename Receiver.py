@@ -2,12 +2,12 @@ import socket
 import struct, sys
 import time
 
-UDP_IP = "10.0.0.2"
+# UDP_IP = "10.0.0.2"
+UDP_IP = "localhost"
 UDP_PORT = 5005
 
-"asdfasfsadfasdf"
 class Server(object):
-    "asfddsfdf"
+    "Receptor"
 
     def __init__(self):
         # Crea la conexion
@@ -24,9 +24,9 @@ class Server(object):
         self.start()
 
     def start(self):
-        "asadfs TODO"
+        "Llama a los metodos del receptor"
         self.negotite_window()
-        self.file = open("Output.txt", "wb") # write as bytes
+        self.file = open("Output", "wb") # write as bytes
         self.receive_segments()
         self.file.close()
 
@@ -67,7 +67,7 @@ class Server(object):
 
     # sock.close()
     def receive_segments(self):
-        "sddfsad TODO"
+        "Recibe los segmentos y los guarda en un archivo de texto"
 
         headersize = 33+(3*4) +1# 2 ints * 4 bytes
         bodysize = self.mss
@@ -106,7 +106,8 @@ class Server(object):
                 expected_seq_num += length
         end = time.time()
         self.file.close()
-        print("recibidos {} bytes en {} segundos".format(0, str(round(end - start, 2))))
+        print("\n\nrecibidos {} Kb en {} segundos".format(str(round(expected_seq_num/1024, 2)), str(round(end - start, 2))))
+        print("Archivo guardado en 'Output' (sin extensio'n)")
         return
 
 

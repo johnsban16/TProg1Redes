@@ -1,7 +1,6 @@
 """
-    TCP reno implementation asfd asdfdf
+    TCP  implementation over udp connection
     Jason Anchia   -- Esteban Castillo
-
 
 """
 
@@ -9,20 +8,23 @@ import socket
 import sys  # used to read the file to send
 import struct
 import math
+import time
 import threading
 # Variables --------------------------------------------------------------
 
-TARGET_IP = "10.0.0.2"
+# TARGET_IP = "10.0.0.2"
+TARGET_IP = "localhost"
 TARGET_PORT = 5005
 
 print("UDP target IP:", TARGET_IP)
 print("UDP target port:", TARGET_PORT)
 
-UDP_IP = "10.0.0.1"
+# UDP_IP = "10.0.0.1"
+UDP_IP = "localhost"
 UDP_PORT = 5006
 
 class Sender(object):
-    "sadfdafsfasdfasdadf"
+    "Emisor"
 
     def ackupdater(self):
         "Updates the value of sequence as new acks arrive**********************"
@@ -128,6 +130,8 @@ class Sender(object):
         print ("--------------------------------", len(sgmts[0]))
         ack = 0
         seq_num = 0
+        
+        start = time.time()
         idx = 0
         while idx < numbsegments:
             if seq_num <= self.window_size:
@@ -148,7 +152,9 @@ class Sender(object):
                 self.sock.sendto(segmnt, (TARGET_IP, TARGET_PORT))
                 seq_num += length
                 idx += 1
-        print('File sent')
+        end = time.time()
+        print("\n\nenviados {} kb en {} segundos".format( str(round(seq_num/1024, 2)) , str(round(end - start, 2))))
+        print("({} segmentos)".format(numbsegments))
 
         # send FIN flag ********************************************************
         header = struct.pack ("!?iii", True, 0, 0, 0)
