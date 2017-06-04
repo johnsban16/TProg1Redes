@@ -25,10 +25,11 @@ class Server(object):
 
     def start(self):
         "Llama a los metodos del receptor"
-        self.negotite_window()
-        self.file = open("Output", "wb") # write as bytes
-        self.receive_segments()
-        self.file.close()
+        while True:
+            self.negotite_window()
+            self.file = open("Output", "wb") # write as bytes
+            self.receive_segments()
+            self.file.close()
 
 
     def negotite_window(self):
@@ -96,7 +97,7 @@ class Server(object):
                 # write segment to disk
                 if length < self.mss:
                     # remove null bytes
-                    self.file.write( data.partition(b'\0')[0]    )
+                    self.file.write( data.partition(b'\0')[0] )
                 else:
                     self.file.write( data   )
 
@@ -104,6 +105,10 @@ class Server(object):
                 sndack = struct.pack ("!ii", rcv_seq_num+1, self.window_size)
                 self.sock.sendto(sndack, (self.target_ip, self.target_port))
                 expected_seq_num += length
+            else: # re send ack
+                sndack = struct.pack ("!ii", expected_seq_num, self.window_size)
+                self.sock.sendto(sndack, (self.target_ip, self.target_port))
+
         end = time.time()
         self.file.close()
         print("\n\nrecibidos {} Kb en {} segundos".format(str(round(expected_seq_num/1024, 2)), str(round(end - start, 2))))

@@ -46,6 +46,8 @@ class Sender(object):
                 self.ack = ack
                 self.window_size = win
                 print("received [ACK] Seq=_  Ack={} Win={} Len=_".format(self.ack, win))
+            elif self.ack >= ack:
+                self.idx -= 1
 
     def __init__(self):
         "**********************************************************************"
@@ -60,6 +62,7 @@ class Sender(object):
         self.window_size = 16000
         self.mss = 1460 # max segment size
         self.ack = 0
+        self.idx = 0
         self.ackr = threading.Thread(target=self.ackupdater)
         self.start()
         self.ackr.start()
@@ -132,10 +135,9 @@ class Sender(object):
         seq_num = 0
         
         start = time.time()
-        idx = 0
-        while idx < numbsegments:
+        while self.idx < numbsegments:
             if seq_num <= self.window_size:
-                length = len( sgmts[idx] )
+                length = len( sgmts[self.idx] )
                 print ("\tseq={} ack={} len={} ".format(seq_num, 1, length))
                 # Header:
                 header = struct.pack ("!?iii", False, seq_num, ack, length)
@@ -145,13 +147,13 @@ class Sender(object):
                     print("header size mismatch")
                     exit(23)
                 # pack the segment data
-                sgdata = struct.pack ( segment_format, sgmts[idx]  )
+                sgdata = struct.pack ( segment_format, sgmts[self.idx]  )
                 segmnt = header + sgdata
                 # print ( segmnt )
                 # print ( sys.getsizeof( segmnt ) )
                 self.sock.sendto(segmnt, (TARGET_IP, TARGET_PORT))
                 seq_num += length
-                idx += 1
+                self.idx += 1
         end = time.time()
         print("\n\nenviados {} kb en {} segundos".format( str(round(seq_num/1024, 2)) , str(round(end - start, 2))))
         print("({} segmentos)".format(numbsegments))
